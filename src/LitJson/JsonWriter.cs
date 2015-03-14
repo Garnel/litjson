@@ -51,6 +51,7 @@ namespace LitJson
         private bool                 pretty_print;
         private bool                 validate;
         private TextWriter           writer;
+        private bool                 ensure_ascii;
         #endregion
 
 
@@ -75,6 +76,11 @@ namespace LitJson
         public bool Validate {
             get { return validate; }
             set { validate = value; }
+        }
+
+        public bool EnsureAscii {
+            get { return ensure_ascii; }
+            set { ensure_ascii = value; }
         }
         #endregion
 
@@ -166,6 +172,7 @@ namespace LitJson
             indent_value = 4;
             pretty_print = false;
             validate = true;
+            ensure_ascii = true;
 
             ctx_stack = new Stack<WriterContext> ();
             context = new WriterContext ();
@@ -225,45 +232,49 @@ namespace LitJson
 
             writer.Write ('"');
 
-            int n = str.Length;
-            for (int i = 0; i < n; i++) {
-                switch (str[i]) {
-                case '\n':
-                    writer.Write ("\\n");
-                    continue;
+            if (ensure_ascii) {
+                int n = str.Length;
+                for (int i = 0; i < n; i++) {
+                    switch (str[i]) {
+                    case '\n':
+                        writer.Write ("\\n");
+                        continue;
 
-                case '\r':
-                    writer.Write ("\\r");
-                    continue;
+                    case '\r':
+                        writer.Write ("\\r");
+                        continue;
 
-                case '\t':
-                    writer.Write ("\\t");
-                    continue;
+                    case '\t':
+                        writer.Write ("\\t");
+                        continue;
 
-                case '"':
-                case '\\':
-                    writer.Write ('\\');
-                    writer.Write (str[i]);
-                    continue;
+                    case '"':
+                    case '\\':
+                        writer.Write ('\\');
+                        writer.Write (str[i]);
+                        continue;
 
-                case '\f':
-                    writer.Write ("\\f");
-                    continue;
+                    case '\f':
+                        writer.Write ("\\f");
+                        continue;
 
-                case '\b':
-                    writer.Write ("\\b");
-                    continue;
+                    case '\b':
+                        writer.Write ("\\b");
+                        continue;
+                    }
+
+                    if ((int) str[i] >= 32 && (int) str[i] <= 126) {
+                        writer.Write (str[i]);
+                        continue;
+                    }
+
+                    // Default, turn into a \uXXXX sequence
+                    IntToHex ((int) str[i], hex_seq);
+                    writer.Write ("\\u");
+                    writer.Write (hex_seq);
                 }
-
-                if ((int) str[i] >= 32 && (int) str[i] <= 126) {
-                    writer.Write (str[i]);
-                    continue;
-                }
-
-                // Default, turn into a \uXXXX sequence
-                IntToHex ((int) str[i], hex_seq);
-                writer.Write ("\\u");
-                writer.Write (hex_seq);
+            } else {
+                writer.Write (str);
             }
 
             writer.Write ('"');
